@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "@/app/firebase";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 
 export function useUserId() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -10,41 +10,29 @@ export function useUserId() {
     if (!id) {
       id = "user_" + Math.random().toString(36).substr(2, 9);
       localStorage.setItem("userId", id);
+      console.log("New user ID generated:", id);
+    } else {
+      console.log("Existing user ID retrieved:", id);
     }
     setUserId(id);
-    createUserInFirebase(id);
+    sendUserIdToFirebase(id);
   }, []);
 
-  const createUserInFirebase = async (id: string) => {
+  const sendUserIdToFirebase = async (id: string) => {
     try {
       await setDoc(
         doc(db, "users", id),
         {
           createdAt: new Date(),
-          "keyvar-maps": {},
+          // Add any other initial user data you want to store
         },
         { merge: true }
       );
+      console.log("User ID sent to Firebase");
     } catch (error) {
-      console.error("Error creating user in Firebase:", error);
+      console.error("Error sending user ID to Firebase:", error);
     }
   };
 
-  const updateUserKeyVariantMap = async (
-    componentKey: string,
-    variantCode: string
-  ) => {
-    if (!userId) return;
-
-    try {
-      const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, {
-        [`keyvar-maps.${componentKey}`]: variantCode,
-      });
-    } catch (error) {
-      console.error("Error updating key-variant map:", error);
-    }
-  };
-
-  return { userId, updateUserKeyVariantMap };
+  return userId;
 }

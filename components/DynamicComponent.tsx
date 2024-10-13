@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUserId } from "@/hooks/useUserId";
 import { LiveProvider, LiveError, LivePreview } from "react-live-runner";
 import * as shadcn from "@/components/ui/index";
-import { db } from "@/app/firebase"; // Import the Firestore instance
-import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/app/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 interface DynamicComponentProps {
   componentKey: string;
@@ -21,14 +21,37 @@ const scope = {
   useCallback,
 };
 
-// ... existing scope definition ...
-
 const DynamicComponent: React.FC<DynamicComponentProps> = ({
   componentKey,
 }) => {
-  const { userId, updateUserKeyVariantMap } = useUserId();
   const [code, setCode] = useState<string>("");
   const [styles, setStyles] = useState<React.ReactNode | null>(null);
+  const userId = useUserId();
+
+  const setUserComponentData = useCallback(
+    async (codeVariant: string) => {
+      if (!userId) return;
+
+      try {
+        const userDocRef = doc(db, "users", userId);
+        const componentDocRef = doc(userDocRef, "keyvar-maps", componentKey);
+
+        await setDoc(
+          componentDocRef,
+          {
+            code: codeVariant,
+            createdAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        console.log(`Data set for user ${userId}, component ${componentKey}`);
+      } catch (error) {
+        console.error("Error setting user component data:", error);
+      }
+    },
+    [userId, componentKey]
+  );
 
   useEffect(() => {
     setStyles(
@@ -82,54 +105,65 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   }, []);
 
   useEffect(() => {
-    const fetchCode = async () => {
-      console.log(`Fetching code for componentKey: ${componentKey}`);
+    const fetchComponentData = async () => {
+      if (!userId) return;
 
       try {
-        const docRef = doc(
-          db,
-          "developer",
-          "zjLHwJHVUHxNsyxFK0tX",
-          "keys",
-          componentKey
-        );
-        const docSnap = await getDoc(docRef);
+        // First, ensure the user document exists
+        const userDocRef = doc(db, "users", userId);
+        await setDoc(userDocRef, { createdAt: new Date() }, { merge: true });
+
+        const componentDocRef = doc(userDocRef, "keyvar-maps", componentKey);
+        const docSnap = await getDoc(componentDocRef);
 
         if (docSnap.exists()) {
-          console.log(`Document found for ${componentKey}`);
           const data = docSnap.data();
-          console.log("Document data:", data);
+          setCode(data.code || "");
+        } else {
+          // If no data exists, fetch from the default location
+          const defaultDocRef = doc(
+            db,
+            "developer",
+            "zjLHwJHVUHxNsyxFK0tX",
+            "keys",
+            componentKey
+          );
+          const defaultDocSnap = await getDoc(defaultDocRef);
 
-          const variants = data.variants || [];
-          console.log(`Number of variants: ${variants.length}`);
-
-          if (variants.length > 0) {
-            const randomIndex = Math.floor(Math.random() * variants.length);
-            const selectedCode = variants[randomIndex];
-            setCode(selectedCode);
-
-            // Update the user's key-variant map in Firebase with the full code
-            if (userId) {
-              updateUserKeyVariantMap(componentKey, selectedCode);
+          if (defaultDocSnap.exists()) {
+            const data = defaultDocSnap.data();
+            const variants = data.variants || [];
+            if (variants.length > 0) {
+              const randomIndex = Math.floor(Math.random() * variants.length);
+              const selectedCode = variants[randomIndex];
+              setCode(selectedCode);
+              await setUserComponentData(selectedCode);
+            } else {
+              console.warn("No variants found in the default document");
             }
           } else {
-            console.warn("No variants found in the document");
+            console.warn(
+              `No default document found for componentKey: ${componentKey}`
+            );
           }
-        } else {
-          console.warn(`No document found for componentKey: ${componentKey}`);
         }
       } catch (error) {
-        console.error("Error fetching document:", error);
+        console.error("Error fetching component data:", error);
       }
     };
 
-    fetchCode();
-  }, [componentKey, userId, updateUserKeyVariantMap]);
+    fetchComponentData();
+  }, [userId, componentKey, setUserComponentData]);
+
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    setUserComponentData(newCode);
+  };
 
   console.log("Rendering component with code length:", code.length);
 
   return (
-    <div>
+    <div className="bg-white p-4 rounded-lg shadow-md">
       <LiveProvider code={code} scope={{ ...scope, styles }}>
         {styles}
         <LivePreview />

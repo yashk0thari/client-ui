@@ -43,6 +43,8 @@ export const metadata = {
 export default function Home() {
   return (
     <>
+      <DynamicComponent componentKey="organize-tasks-simply-9ze37z" />
+      <DynamicComponent componentKey="tic-tac-toe-8npgyr" />
       <HeroSection />
       <SponsorsSection />
       <BenefitsSection />
