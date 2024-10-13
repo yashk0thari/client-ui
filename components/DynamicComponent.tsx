@@ -28,11 +28,11 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   const [styles, setStyles] = useState<React.ReactNode | null>(null);
   const userId = useUserId();
   const [userKeyVariantMaps, setUserKeyVariantMaps] = useState<
-    Record<string, string>
+    Record<string, { code: string; variantId: number }>
   >({});
 
   const setUserComponentData = useCallback(
-    async (codeVariant: string) => {
+    async (codeVariant: string, variantId: number) => {
       if (!userId) return;
 
       try {
@@ -43,17 +43,20 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
           componentDocRef,
           {
             code: codeVariant,
+            variantId: variantId,
             createdAt: new Date(),
           },
           { merge: true }
         );
 
-        console.log(`Data set for user ${userId}, component ${componentKey}`);
+        console.log(
+          `Data set for user ${userId}, component ${componentKey}, variantId ${variantId}`
+        );
 
         // Update local state
         setUserKeyVariantMaps((prev) => ({
           ...prev,
-          [componentKey]: codeVariant,
+          [componentKey]: { code: codeVariant, variantId },
         }));
       } catch (error) {
         console.error("Error setting user component data:", error);
@@ -131,19 +134,21 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         const keyvarMapsRef = collection(userDocRef, "keyvar-maps");
         const keyvarMapsSnapshot = await getDocs(keyvarMapsRef);
 
-        const maps: Record<string, string> = {};
+        const maps: Record<string, { code: string; variantId: number }> = {};
         keyvarMapsSnapshot.forEach((doc) => {
-          maps[doc.id] = doc.data().code;
+          const data = doc.data();
+          maps[doc.id] = { code: data.code, variantId: data.variantId };
         });
 
         setUserKeyVariantMaps(maps);
 
         // Set the code for the current component
         if (maps[componentKey]) {
-          setCode(maps[componentKey]);
+          setCode(maps[componentKey].code);
         } else {
           // If this component doesn't have a variant yet, assign one
-          const newVariant = await fetchAndAssignRandomVariant(componentKey);
+          const { code: newVariant, variantId } =
+            await fetchAndAssignRandomVariant(componentKey);
           setCode(newVariant);
         }
       } catch (error) {
@@ -181,11 +186,11 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         if (variants.length > 0) {
           const randomIndex = Math.floor(Math.random() * variants.length);
           const selectedCode = variants[randomIndex];
-          await setUserComponentData(selectedCode);
-          return selectedCode;
+          await setUserComponentData(selectedCode, randomIndex);
+          return { code: selectedCode, variantId: randomIndex };
         }
       }
-      return "";
+      return { code: "", variantId: -1 };
     };
 
     fetchUserData();
@@ -193,7 +198,8 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
-    setUserComponentData(newCode);
+    const currentVariantId = userKeyVariantMaps[componentKey]?.variantId || 0;
+    setUserComponentData(newCode, currentVariantId);
   };
 
   console.log("Rendering component with code length:", code.length);

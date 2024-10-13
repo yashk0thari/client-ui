@@ -2,16 +2,26 @@
 "use client";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
+import { useUserId } from "@/hooks/useUserId";
+import React from "react";
 
 if (typeof window !== "undefined") {
-  // console.log("Initializing PostHog", process.env.NEXT_PUBLIC_POSTHOG_KEY);
   posthog.init("phc_8VdrFo8D7R0mX6P0OEdjZnv7XnAC2zzMFmBeOZoDjVg", {
     api_host: "https://us.i.posthog.com",
     person_profiles: "identified_only",
-    capture_pageview: true, // Disable automatic pageview capture, as we capture manually
+    capture_pageview: true,
   });
 }
 
 export function PHProvider({ children }: { children: React.ReactNode }) {
+  const userId = useUserId();
+
+  // Use useEffect to identify the user after the component mounts
+  React.useEffect(() => {
+    if (userId) {
+      posthog.identify(userId);
+    }
+  }, [userId]);
+
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 }
