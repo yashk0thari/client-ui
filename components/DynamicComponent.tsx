@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useUserId } from "@/hooks/useUserId";
 import { LiveProvider, LiveError, LivePreview } from "react-live-runner";
 import * as shadcn from "@/components/ui/index";
 import { db } from "@/app/firebase"; // Import the Firestore instance
@@ -27,6 +28,14 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
 }) => {
   const [code, setCode] = useState<string>("");
   const [styles, setStyles] = useState<React.ReactNode | null>(null);
+  const userId = useUserId();
+
+  useEffect(() => {
+    if (userId) {
+      console.log(`Current user ID: ${userId}`);
+      // You can also send this to your backend or use it in other ways
+    }
+  }, [userId]);
 
   useEffect(() => {
     setStyles(
