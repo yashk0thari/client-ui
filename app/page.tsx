@@ -45,6 +45,7 @@ export default function Home() {
     <>
       {/* <DynamicComponent componentKey="organize-tasks-simply-9ze37z" />
       <DynamicComponent componentKey="tic-tac-toe-8npgyr" /> */}
+      <DynamicComponent componentKey="Organize-Tasks-Easily-8lww0y" />
       
       <DynamicComponent componentKey="brave-core-element-6oqyyh" />
       {/* <HeroSection /> */}
