@@ -199,7 +199,7 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   console.log("Rendering component with code length:", code.length);
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
+    <div>
       <LiveProvider code={code} scope={{ ...scope, styles }}>
         {styles}
         <LivePreview />
