@@ -1,5 +1,4 @@
 "use client";
-import DynamicComponent from "@/components/DynamicComponent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -15,7 +14,6 @@ export const HeroSection = () => {
         <div className="text-center space-y-8">
           <Badge variant="outline" className="text-sm py-2">
             <span className="mr-2 text-primary">
-              <DynamicComponent componentKey="badge-simple-component-fypcb9" />
             </span>
             <span> Design is out now! </span>
           </Badge>
