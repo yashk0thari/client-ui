@@ -50,12 +50,16 @@ export default function Home() {
       <BenefitsSection />
       <FeaturesSection />
       <ServicesSection />
-      <TestimonialSection />
+      <DynamicComponent componentKey="carousel-review-slider-zdaxo2" />
+      {/* <TestimonialSection /> */}
       <TeamSection />
       <CommunitySection />
-      <PricingSection />
-      <ContactSection />
-      <FAQSection />
+      <DynamicComponent componentKey="Pricing-Card-Design-qfy6yr" />
+      {/* <PricingSection /> */}
+      <DynamicComponent componentKey="contact-card-component-wiz1r1" />
+      {/* <ContactSection /> */}
+      <DynamicComponent componentKey="faq-accordion-component-qh3wdt" />
+      {/* <FAQSection /> */}
       <FooterSection />
     </>
   );
