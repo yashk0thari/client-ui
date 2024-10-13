@@ -45,21 +45,40 @@ export default function Home() {
     <>
       {/* <DynamicComponent componentKey="organize-tasks-simply-9ze37z" />
       <DynamicComponent componentKey="tic-tac-toe-8npgyr" /> */}
-      <HeroSection />
+      
+      <DynamicComponent componentKey="brave-core-element-6oqyyh" />
+      {/* <HeroSection /> */}
+
       <SponsorsSection />
-      <BenefitsSection />
+
+      <DynamicComponent componentKey="benefits-layout-shift-724ydz" />
+      {/* <BenefitsSection /> */}
+
+      {/* keeping features the same */}
       <FeaturesSection />
-      <ServicesSection />
-      <DynamicComponent componentKey="carousel-review-slider-zdaxo2" />
+
+      <DynamicComponent componentKey="business-growth-layout-1ezu9a" />
+      {/* <ServicesSection /> */}
+
+      {/* <DynamicComponent componentKey="carousel-review-slider-zdaxo2" /> */}
+      <DynamicComponent componentKey="review-carousel-design-30z9u8" />
       {/* <TestimonialSection /> */}
+
+      {/*  */}
       <TeamSection />
+
+      {/* <DynamicComponent componentKey="Community-White-Invisible-31a4f3" /> */}
       <CommunitySection />
+
       <DynamicComponent componentKey="Pricing-Card-Design-qfy6yr" />
       {/* <PricingSection /> */}
+
       <DynamicComponent componentKey="contact-card-component-wiz1r1" />
       {/* <ContactSection /> */}
+
       <DynamicComponent componentKey="faq-accordion-component-qh3wdt" />
       {/* <FAQSection /> */}
+
       <FooterSection />
     </>
   );
