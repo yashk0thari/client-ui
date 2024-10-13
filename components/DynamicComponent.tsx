@@ -5,7 +5,7 @@ import { useUserId } from "@/hooks/useUserId";
 import { LiveProvider, LiveError, LivePreview } from "react-live-runner";
 import * as shadcn from "@/components/ui/index";
 import { db } from "@/app/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
 
 interface DynamicComponentProps {
   componentKey: string;
@@ -27,6 +27,9 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   const [code, setCode] = useState<string>("");
   const [styles, setStyles] = useState<React.ReactNode | null>(null);
   const userId = useUserId();
+  const [userKeyVariantMaps, setUserKeyVariantMaps] = useState<
+    Record<string, string>
+  >({});
 
   const setUserComponentData = useCallback(
     async (codeVariant: string) => {
@@ -46,6 +49,12 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         );
 
         console.log(`Data set for user ${userId}, component ${componentKey}`);
+
+        // Update local state
+        setUserKeyVariantMaps((prev) => ({
+          ...prev,
+          [componentKey]: codeVariant,
+        }));
       } catch (error) {
         console.error("Error setting user component data:", error);
       }
@@ -105,54 +114,81 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   }, []);
 
   useEffect(() => {
-    const fetchComponentData = async () => {
+    const fetchUserData = async () => {
       if (!userId) return;
 
       try {
-        // First, ensure the user document exists
         const userDocRef = doc(db, "users", userId);
-        await setDoc(userDocRef, { createdAt: new Date() }, { merge: true });
+        const userDocSnap = await getDoc(userDocRef);
 
-        const componentDocRef = doc(userDocRef, "keyvar-maps", componentKey);
-        const docSnap = await getDoc(componentDocRef);
+        if (!userDocSnap.exists()) {
+          // User doesn't exist, create new user and assign random variants
+          await setDoc(userDocRef, { createdAt: new Date() });
+          await assignRandomVariants(userDocRef);
+        }
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setCode(data.code || "");
+        // Fetch all keyvar-maps for the user
+        const keyvarMapsRef = collection(userDocRef, "keyvar-maps");
+        const keyvarMapsSnapshot = await getDocs(keyvarMapsRef);
+
+        const maps: Record<string, string> = {};
+        keyvarMapsSnapshot.forEach((doc) => {
+          maps[doc.id] = doc.data().code;
+        });
+
+        setUserKeyVariantMaps(maps);
+
+        // Set the code for the current component
+        if (maps[componentKey]) {
+          setCode(maps[componentKey]);
         } else {
-          // If no data exists, fetch from the default location
-          const defaultDocRef = doc(
-            db,
-            "developer",
-            "zjLHwJHVUHxNsyxFK0tX",
-            "keys",
-            componentKey
-          );
-          const defaultDocSnap = await getDoc(defaultDocRef);
-
-          if (defaultDocSnap.exists()) {
-            const data = defaultDocSnap.data();
-            const variants = data.variants || [];
-            if (variants.length > 0) {
-              const randomIndex = Math.floor(Math.random() * variants.length);
-              const selectedCode = variants[randomIndex];
-              setCode(selectedCode);
-              await setUserComponentData(selectedCode);
-            } else {
-              console.warn("No variants found in the default document");
-            }
-          } else {
-            console.warn(
-              `No default document found for componentKey: ${componentKey}`
-            );
-          }
+          // If this component doesn't have a variant yet, assign one
+          const newVariant = await fetchAndAssignRandomVariant(componentKey);
+          setCode(newVariant);
         }
       } catch (error) {
-        console.error("Error fetching component data:", error);
+        console.error("Error fetching user data:", error);
       }
     };
 
-    fetchComponentData();
+    const assignRandomVariants = async (userDocRef: any) => {
+      const defaultDocRef = doc(db, "developer", "zjLHwJHVUHxNsyxFK0tX");
+      const defaultDocSnap = await getDoc(defaultDocRef);
+
+      if (defaultDocSnap.exists()) {
+        const data = defaultDocSnap.data();
+        const keys = Object.keys(data);
+
+        for (const key of keys) {
+          await fetchAndAssignRandomVariant(key);
+        }
+      }
+    };
+
+    const fetchAndAssignRandomVariant = async (key: string) => {
+      const defaultDocRef = doc(
+        db,
+        "developer",
+        "zjLHwJHVUHxNsyxFK0tX",
+        "keys",
+        key
+      );
+      const defaultDocSnap = await getDoc(defaultDocRef);
+
+      if (defaultDocSnap.exists()) {
+        const data = defaultDocSnap.data();
+        const variants = data.variants || [];
+        if (variants.length > 0) {
+          const randomIndex = Math.floor(Math.random() * variants.length);
+          const selectedCode = variants[randomIndex];
+          await setUserComponentData(selectedCode);
+          return selectedCode;
+        }
+      }
+      return "";
+    };
+
+    fetchUserData();
   }, [userId, componentKey, setUserComponentData]);
 
   const handleCodeChange = (newCode: string) => {
