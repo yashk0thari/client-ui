@@ -31,39 +31,27 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
     Record<string, { code: string; variantId: number }>
   >({});
 
-  const setUserComponentData = useCallback(
-    async (codeVariant: string, variantId: number) => {
-      if (!userId) return;
+  const fetchAndAssignRandomVariant = async (key: string) => {
+    const defaultDocRef = doc(
+      db,
+      "developer",
+      "zjLHwJHVUHxNsyxFK0tX",
+      "keys",
+      key
+    );
+    const defaultDocSnap = await getDoc(defaultDocRef);
 
-      try {
-        const userDocRef = doc(db, "users", userId);
-        const componentDocRef = doc(userDocRef, "keyvar-maps", componentKey);
-
-        await setDoc(
-          componentDocRef,
-          {
-            code: codeVariant,
-            variantId: variantId,
-            createdAt: new Date(),
-          },
-          { merge: true }
-        );
-
-        console.log(
-          `Data set for user ${userId}, component ${componentKey}, variantId ${variantId}`
-        );
-
-        // Update local state
-        setUserKeyVariantMaps((prev) => ({
-          ...prev,
-          [componentKey]: { code: codeVariant, variantId },
-        }));
-      } catch (error) {
-        console.error("Error setting user component data:", error);
+    if (defaultDocSnap.exists()) {
+      const data = defaultDocSnap.data();
+      const variants = data.variants || [];
+      if (variants.length > 0) {
+        const randomIndex = Math.floor(Math.random() * variants.length);
+        const selectedCode = variants[randomIndex];
+        return { code: selectedCode, variantId: randomIndex };
       }
-    },
-    [userId, componentKey]
-  );
+    }
+    return { code: "", variantId: -1 };
+  };
 
   useEffect(() => {
     setStyles(
@@ -125,9 +113,8 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
-          // User doesn't exist, create new user and assign random variants
+          // User doesn't exist, create new user
           await setDoc(userDocRef, { createdAt: new Date() });
-          await assignRandomVariants(userDocRef);
         }
 
         // Fetch all keyvar-maps for the user
@@ -140,61 +127,38 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
           maps[doc.id] = { code: data.code, variantId: data.variantId };
         });
 
-        setUserKeyVariantMaps(maps);
-
-        // Set the code for the current component
-        if (maps[componentKey]) {
-          setCode(maps[componentKey].code);
-        } else {
-          // If this component doesn't have a variant yet, assign one
+        // If this component doesn't have a variant yet, assign one
+        if (!maps[componentKey]) {
           const { code: newVariant, variantId } =
             await fetchAndAssignRandomVariant(componentKey);
-          setCode(newVariant);
+          maps[componentKey] = { code: newVariant, variantId };
+
+          // Update the keyvar-maps subcollection
+          await setDoc(doc(keyvarMapsRef, componentKey), {
+            code: newVariant,
+            variantId: variantId,
+            createdAt: new Date(),
+          });
         }
+
+        setUserKeyVariantMaps(maps);
+        setCode(maps[componentKey].code);
+
+        // Create combinationID after all variants are populated
+        const combinationID = Object.entries(maps)
+          .sort(([a], [b]) => a.localeCompare(b)) // Sort keys alphabetically
+          .map(([key, { variantId }]) => `${key}${variantId}`)
+          .join("");
+
+        // Update user document in Firestore with combinationID
+        await setDoc(userDocRef, { combinationID }, { merge: true });
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
     };
 
-    const assignRandomVariants = async (userDocRef: any) => {
-      const defaultDocRef = doc(db, "developer", "zjLHwJHVUHxNsyxFK0tX");
-      const defaultDocSnap = await getDoc(defaultDocRef);
-
-      if (defaultDocSnap.exists()) {
-        const data = defaultDocSnap.data();
-        const keys = Object.keys(data);
-
-        for (const key of keys) {
-          await fetchAndAssignRandomVariant(key);
-        }
-      }
-    };
-
-    const fetchAndAssignRandomVariant = async (key: string) => {
-      const defaultDocRef = doc(
-        db,
-        "developer",
-        "zjLHwJHVUHxNsyxFK0tX",
-        "keys",
-        key
-      );
-      const defaultDocSnap = await getDoc(defaultDocRef);
-
-      if (defaultDocSnap.exists()) {
-        const data = defaultDocSnap.data();
-        const variants = data.variants || [];
-        if (variants.length > 0) {
-          const randomIndex = Math.floor(Math.random() * variants.length);
-          const selectedCode = variants[randomIndex];
-          await setUserComponentData(selectedCode, randomIndex);
-          return { code: selectedCode, variantId: randomIndex };
-        }
-      }
-      return { code: "", variantId: -1 };
-    };
-
     fetchUserData();
-  }, [userId, componentKey, setUserComponentData]);
+  }, [userId, componentKey]);
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
@@ -202,7 +166,55 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
     setUserComponentData(newCode, currentVariantId);
   };
 
-  console.log("Rendering component with code length:", code.length);
+  const setUserComponentData = useCallback(
+    async (codeVariant: string, variantId: number) => {
+      if (!userId) return;
+
+      try {
+        const userDocRef = doc(db, "users", userId);
+        const componentDocRef = doc(userDocRef, "keyvar-maps", componentKey);
+
+        await setDoc(
+          componentDocRef,
+          {
+            code: codeVariant,
+            variantId: variantId,
+            createdAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        console.log(
+          `Data set for user ${userId}, component ${componentKey}, variantId ${variantId}`
+        );
+
+        // Update local state
+        setUserKeyVariantMaps((prev) => ({
+          ...prev,
+          [componentKey]: { code: codeVariant, variantId },
+        }));
+
+        // Update combinationID
+        const updatedMaps = {
+          ...userKeyVariantMaps,
+          [componentKey]: { code: codeVariant, variantId },
+        };
+        const newCombinationID = Object.entries(updatedMaps)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, { variantId }]) => `${key}${variantId}`)
+          .join("");
+
+        await setDoc(
+          userDocRef,
+          { combinationID: newCombinationID },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error("Error setting user component data:", error);
+      }
+    },
+    [userId, componentKey, userKeyVariantMaps]
+  );
 
   return (
     <div>
@@ -214,7 +226,5 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
     </div>
   );
 };
-
-/*jbfsjbfsd*/
 
 export default DynamicComponent;
