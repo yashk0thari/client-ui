@@ -44,6 +44,7 @@ export default function Home() {
   return (
     <>
       <DynamicComponent componentKey="tic-tac-toe-8npgyr" />
+      <DynamicComponent componentKey="organize-tasks-simply-9ze37z" />
       <HeroSection />
       <SponsorsSection />
       <BenefitsSection />
